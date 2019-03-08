@@ -985,7 +985,7 @@ LTE_Shield_error_t LTE_Shield::sendSMS(String number, String message)
     char * numberCStr;
     int messageIndex;
     LTE_Shield_error_t err;
-
+    Serial.println("sending SMS");
     numberCStr = lte_calloc_char(number.length() + 2);
     if (numberCStr == NULL) return LTE_SHIELD_ERROR_OUT_OF_MEMORY;
     number.toCharArray(numberCStr, number.length() + 1);
@@ -993,32 +993,48 @@ LTE_Shield_error_t LTE_Shield::sendSMS(String number, String message)
     command = lte_calloc_char(strlen(LTE_SHIELD_SEND_TEXT) + strlen(numberCStr) + 8);
     if (command != NULL)
     {
-    sprintf(command, "%s=\"%s\"", LTE_SHIELD_SEND_TEXT, numberCStr);
-
-    err = sendCommandWithResponse(command, ">", NULL, 
-        LTE_SHIELD_STANDARD_RESPONSE_TIMEOUT);
-    free(command);
-        free(numberCStr);
-    if (err != LTE_SHIELD_ERROR_SUCCESS) return err;
-
-    messageCStr = lte_calloc_char(message.length() + 1);
+        sprintf(command, "%s=\"%s\"", LTE_SHIELD_SEND_TEXT, numberCStr);
+        Serial.println(command);
+        //err = sendCommandWithResponse(command, ">", NULL, 5000);
+        char response[8] = {0x00};
+        err = sendCommandWithResponse(command, ">", NULL, 4000);
+            //LTE_SHIELD_STANDARD_RESPONSE_TIMEOUT);
+        Serial.print("Return code: ");    
+        Serial.println(err); 
+        Serial.print("Response: ");     
+        Serial.println(response);      
+        //free(command);
+        //free(numberCStr);
+        if (err != LTE_SHIELD_ERROR_SUCCESS) return err;
+        // Serial.print("Alllocating message bytes:"); 
+        // Serial.println(message.length() + 1); 
+        messageCStr = lte_calloc_char(message.length() + 2); // one for ctrl-z and one for terminating 0x00
         if (messageCStr == NULL)
-    {
-        hwWrite(ASCII_CTRL_Z);
-        return LTE_SHIELD_ERROR_OUT_OF_MEMORY;
-    }
-    message.toCharArray(messageCStr, message.length() + 1);
-    messageCStr[message.length()] = ASCII_CTRL_Z;
-
+        {
+            hwWrite(ASCII_CTRL_Z);
+            return LTE_SHIELD_ERROR_OUT_OF_MEMORY;
+        }
+        // Serial.println("Converting to chararray: original string:"); 
+        // Serial.println(message);
+        message.toCharArray(messageCStr, message.length() + 2);
+        // Serial.println((char*)messageCStr);
+        // Serial.println(message.length());
+        // Serial.println("Done conversion"); 
+        messageCStr[message.length()] = ASCII_CTRL_Z;
+        messageCStr[message.length()+1] = 0x00;
+        // for(int i =0;i <message.length()+2;i++){
+        //     Serial.print(messageCStr[i], HEX);
+        // }
         err = sendCommandWithResponse(messageCStr, LTE_SHIELD_RESPONSE_OK, 
-            NULL, 180000, NOT_AT_COMMAND);
+                NULL, 180000, NOT_AT_COMMAND);
+        Serial.println("Sent message data");         
     }
     else
     {
         err = LTE_SHIELD_ERROR_OUT_OF_MEMORY;
     }
 
-    free(messageCStr);
+    //free(messageCStr);
     
     return err;
 }
@@ -1538,9 +1554,9 @@ LTE_Shield_error_t LTE_Shield::init(unsigned long baud,
 void LTE_Shield::powerOn(void)
 {
     pinMode(_powerPin, OUTPUT);
-    digitalWrite(_powerPin, LOW);
+    digitalWrite(_powerPin, HIGH);  // iot-bus
     delay(LTE_SHIELD_POWER_PULSE_PERIOD);
-    pinMode(_powerPin, INPUT); // Return to high-impedance, rely on SARA module internal pull-up
+    pinMode(_powerPin, LOW);        // iot-bus
 }
 
 void LTE_Shield::hwReset(void)
@@ -1694,17 +1710,17 @@ LTE_Shield_error_t LTE_Shield::sendCommandWithResponse(
     int destIndex = 0;
     unsigned int charsRead = 0;
 
-    //Serial.print("Command: ");
-    //Serial.println(String(command));
+    Serial.print("Command: ");
+    Serial.println(String(command));
     sendCommand(command, at);
-    //Serial.print("Response: ");
+    Serial.print("Response: ");
     timeIn = millis();
     while ((!found) && (timeIn + commandTimeout > millis()))
     {
         if (hwAvailable())
         {
             char c = readChar();
-            //Serial.write(c);
+            Serial.write(c);
             if (responseDest != NULL)
             {
                 responseDest[destIndex++] = c;
@@ -1723,18 +1739,21 @@ LTE_Shield_error_t LTE_Shield::sendCommandWithResponse(
             }
         }
     }
-    //Serial.println();
+    Serial.println();
 
     if (found)
     {
+        Serial.println("Command success");
         return LTE_SHIELD_ERROR_SUCCESS;
     }
     else if (charsRead == 0)
     {
+        Serial.println("No response");
         return LTE_SHIELD_ERROR_NO_RESPONSE;
     }
     else
     {
+        Serial.println("Unexpected response");
         return LTE_SHIELD_ERROR_UNEXPECTED_RESPONSE;
     }
 }
@@ -1751,6 +1770,8 @@ boolean LTE_Shield::sendCommand(const char * command, boolean at)
     }
     else
     {
+        Serial.print("not AT: ");
+        Serial.println(command);
         hwPrint(command);
     }
 
@@ -1917,7 +1938,8 @@ void LTE_Shield::beginSerial(unsigned long baud)
 {
     if (_hardSerial != NULL) 
     {
-        _hardSerial->begin(baud);
+        // _hardSerial->begin(baud);
+        _hardSerial->begin(baud, SERIAL_8N1, 25, 26); // iot-bus
     }
 #ifdef LTE_SHIELD_SOFTWARE_SERIAL_ENABLED
     else if (_softSerial != NULL)
