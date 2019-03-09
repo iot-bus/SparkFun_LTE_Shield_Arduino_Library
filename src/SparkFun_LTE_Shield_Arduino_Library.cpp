@@ -111,7 +111,6 @@ LTE_Shield::LTE_Shield(uint8_t powerPin, uint8_t resetPin)
     _resetPin = resetPin;
     _powerPin = powerPin;
     pinMode(_resetPin, INPUT); // ensure in high impedance mode
-    pinMode(_powerPin, INPUT); // ensure in high impedance mode
     _socketReadCallback = NULL;
     _socketCloseCallback = NULL;
     _lastRemoteIP = {0, 0, 0, 0};
@@ -1558,7 +1557,7 @@ void LTE_Shield::powerOn(void)
     pinMode(_powerPin, OUTPUT);
     digitalWrite(_powerPin, HIGH);  // iot-bus
     delay(LTE_SHIELD_POWER_PULSE_PERIOD);
-    pinMode(_powerPin, INPUT);      // iot-bus
+    pinMode(_powerPin, LOW);        // iot-bus
 }
 
 void LTE_Shield::hwReset(void)
