@@ -110,8 +110,8 @@ LTE_Shield::LTE_Shield(uint8_t powerPin, uint8_t resetPin)
     _baud = 0;
     _resetPin = resetPin;
     _powerPin = powerPin;
-    pinMode(_powerPin, INPUT); // ensure in high impedance mode
     pinMode(_resetPin, INPUT); // ensure in high impedance mode
+    pinMode(_powerPin, INPUT); // ensure in high impedance mode
     _socketReadCallback = NULL;
     _socketCloseCallback = NULL;
     _lastRemoteIP = {0, 0, 0, 0};
